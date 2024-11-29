@@ -1,0 +1,16 @@
+threat_type,severity,status,impact,confidence_score,affected_component,attack_vector,details
+data_poisoning,critical,detected,model_corruption,0.95,training_data,tainted_samples,Injected adversarial examples caused 23% accuracy drop
+data_poisoning,high,successful,bias_introduction,0.89,validation_set,biased_data,Introduced demographic bias in facial recognition
+data_poisoning,critical,prevented,backdoor,0.93,training_pipeline,trigger_patterns,Attempted backdoor trigger insertion in image classifier
+prompt_injection,high,detected,data_leak,0.88,api_endpoint,malicious_prompt,Attempted to extract system information via prompt
+prompt_injection,critical,successful,auth_bypass,0.94,llm_service,escape_sequence,Bypassed input filtering using Unicode characters
+prompt_injection,high,prevented,system_access,0.91,inference_api,context_manipulation,Tried accessing filesystem through prompt engineering
+model_inversion,critical,successful,privacy_breach,0.96,model_weights,gradient_exploitation,Extracted private training data through API
+model_inversion,high,detected,data_extraction,0.92,inference_engine,membership_inference,Identified presence of specific records in training
+model_inversion,critical,prevented,model_theft,0.90,model_endpoint,architecture_probing,Attempted to reconstruct model architecture
+data_poisoning,high,successful,performance_drop,0.87,training_data,noise_injection,Added targeted noise to degrade specific classes
+prompt_injection,critical,detected,token_theft,0.95,authentication,credential_extraction,Attempted to expose API tokens through prompts
+model_inversion,high,prevented,information_leak,0.89,model_service,query_optimization,Systematic probing for parameter extraction
+data_poisoning,critical,successful,targeted_attack,0.93,input_pipeline,adversarial_patterns,Poisoned inputs to target specific predictions
+prompt_injection,high,detected,privilege_escalation,0.91,access_control,role_manipulation,Attempted to gain admin access through prompts
+model_inversion,critical,prevented,data_breach,0.94,api_service,reconstruction_attack,Tried reconstructing training data through queries
