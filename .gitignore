@@ -361,3 +361,9 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# ---- Node.js / Ludo King app ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+.env
+.DS_Store

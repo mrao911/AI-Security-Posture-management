@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Ludo King · Multiplayer</title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='50' height='50' fill='%23e53935'/%3E%3Crect x='50' width='50' height='50' fill='%2343a047'/%3E%3Crect y='50' width='50' height='50' fill='%231e88e5'/%3E%3Crect x='50' y='50' width='50' height='50' fill='%23fbc02d'/%3E%3C/svg%3E" />
+</head>
+<body>
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- ============ LOBBY ============ -->
+  <section id="screen-lobby" class="screen center">
+    <div class="card lobby-card">
+      <h1 class="logo">🎲 Ludo <span>King</span></h1>
+      <p class="subtitle">Real-time multiplayer · 2–4 players</p>
+
+      <label class="field">
+        <span>Your name</span>
+        <input id="name-input" maxlength="18" placeholder="Enter your name" />
+      </label>
+
+      <button id="btn-create" class="btn primary big">Create new game</button>
+
+      <div class="divider"><span>or join</span></div>
+
+      <div class="join-row">
+        <input id="join-code" maxlength="5" placeholder="ROOM CODE" class="code-input" />
+        <button id="btn-join" class="btn">Join</button>
+      </div>
+    </div>
+    <footer class="foot">Share the room code with friends to play together.</footer>
+  </section>
+
+  <!-- ============ ROOM / WAITING ============ -->
+  <section id="screen-room" class="screen center hidden">
+    <div class="card room-card">
+      <h2>Game lobby</h2>
+      <div class="code-box">
+        <span class="code-label">Room code</span>
+        <span id="room-code" class="code-value">—</span>
+        <button id="btn-copy-code" class="btn mini">Copy</button>
+      </div>
+
+      <h3>Players</h3>
+      <ul id="seat-list" class="seat-list"></ul>
+
+      <div id="host-controls" class="host-controls">
+        <button id="btn-add-bot" class="btn">+ Add bot</button>
+        <button id="btn-start" class="btn primary">Start game</button>
+      </div>
+      <p id="start-hint" class="hint"></p>
+    </div>
+  </section>
+
+  <!-- ============ GAME ============ -->
+  <section id="screen-game" class="screen hidden">
+    <div class="game-layout">
+      <aside class="sidebar left">
+        <h2 class="logo small">🎲 Ludo King</h2>
+        <div id="players-panel" class="players-panel"></div>
+        <div class="dice-area">
+          <div id="turn-banner" class="turn-banner">—</div>
+          <div id="die" class="die">–</div>
+          <button id="btn-roll" class="btn primary big">Roll dice</button>
+          <p id="move-hint" class="hint"></p>
+          <p id="event-note" class="event-note"></p>
+        </div>
+        <button id="btn-leave" class="btn mini ghost">Leave game</button>
+      </aside>
+
+      <main id="board-wrap" class="board-wrap">
+        <canvas id="board" width="525" height="525"></canvas>
+      </main>
+
+      <aside class="sidebar right">
+        <h3>Chat</h3>
+        <div id="chat-log" class="chat-log"></div>
+        <div class="chat-input-row">
+          <input id="chat-input" maxlength="240" placeholder="Say something…" />
+          <button id="chat-send" class="btn mini">Send</button>
+        </div>
+      </aside>
+    </div>
+
+    <div id="winner-modal" class="modal hidden">
+      <div class="modal-card">
+        <h2 id="winner-title">🏆</h2>
+        <ol id="winner-list" class="winner-list"></ol>
+        <button id="btn-play-again" class="btn primary big">Play again</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/js/constants.js"></script>
+  <script src="/js/board.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
