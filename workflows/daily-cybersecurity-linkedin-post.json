@@ -1,0 +1,234 @@
+{
+  "name": "Daily Cybersecurity LinkedIn Post",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Setup (do once)\n1. Credentials → new **Header Auth**: name `x-api-key`, value = your Anthropic API key. Attach it to all 3 'Call Claude' nodes.\n2. Credentials → **SMTP** (or swap the email node for Slack/Telegram). Set your from/to addresses in 'Approval Email'.\n3. Credentials → **LinkedIn OAuth2**, then open 'Post to LinkedIn' and select your Person/Organization.\n4. Activate the workflow. It runs daily at 06:00; you get an email with the draft + Approve/Reject links; nothing posts without your click.",
+        "height": 260,
+        "width": 420
+      },
+      "id": "sticky-1",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-460, -80]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 6 * * *"
+            }
+          ]
+        }
+      },
+      "id": "trigger-1",
+      "name": "Daily 06:00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-460, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const today = new Date().toISOString().split('T')[0];\n\nconst systemPrompt = `You are a senior threat intelligence analyst producing a daily brief for a cybersecurity content company.\\n\\nTASK: Search the web and identify the single most significant cybersecurity development of the last 24-48 hours. Prioritize: (1) actively exploited vulnerabilities / CISA KEV additions / zero-days, (2) major breaches, ransomware or APT campaigns, (3) threats to emerging tech (AI/LLM security, cloud-native, IoT/OT, supply chain).\\n\\nPRIORITIZED SOURCES: CISA, NVD/MITRE, Microsoft MSRC, Unit 42, Mandiant, Google TAG, BleepingComputer, The Hacker News, Krebs on Security, SANS ISC. Cross-check claims against at least 2 sources.\\n\\nRULES: Never invent CVE numbers, CVSS scores or vendor statements. Label unconfirmed details as reported/unconfirmed. Mitigations must be defensive only (patching, hardening, detection) - never exploitation guidance.\\n\\nOUTPUT: respond ONLY with valid JSON, no markdown fences, exactly this shape:\\n{\\\"date\\\":\\\"...\\\",\\\"headline\\\":\\\"...\\\",\\\"summary\\\":\\\"150 words max, factual\\\",\\\"cve_ids\\\":[\\\"...\\\"],\\\"severity\\\":\\\"critical|high|medium\\\",\\\"affected\\\":\\\"...\\\",\\\"risks\\\":[\\\"...\\\"],\\\"mitigations\\\":[\\\"step 1\\\",\\\"step 2\\\",\\\"step 3\\\"],\\\"emerging_tech_angle\\\":\\\"... or null\\\",\\\"sources\\\":[\\\"url1\\\",\\\"url2\\\"]}`;\n\nreturn [{ json: { requestBody: {\n  model: 'claude-sonnet-4-6',\n  max_tokens: 4000,\n  system: systemPrompt,\n  messages: [{ role: 'user', content: `Today is ${today}. Produce the daily brief.` }],\n  tools: [{ type: 'web_search_20250305', name: 'web_search' }]\n} } }];"
+      },
+      "id": "code-1",
+      "name": "Build Research Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-240, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": { "timeout": 180000 }
+      },
+      "id": "http-1",
+      "name": "Call Claude - Research",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-20, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract text blocks (web search responses contain mixed block types)\nconst text = ($json.content || []).filter(b => b.type === 'text').map(b => b.text).join('\\n');\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nif (start === -1 || end === -1) throw new Error('Research agent did not return JSON: ' + text.slice(0, 300));\nconst brief = JSON.parse(text.slice(start, end + 1));\n\nconst systemPrompt = `You are the LinkedIn ghostwriter for YOUR_NAME, founder of YOUR_COMPANY, a cybersecurity consultancy. Voice: expert but plain-spoken, practitioner-to-practitioner, zero hype, no fear-mongering.\\n\\nTASK: write ONE LinkedIn post about the story in the provided intel brief.\\n\\nFORMAT: hook line (first 8-12 words earn the see-more click, lead with impact not the CVE number); 2-3 short paragraphs: what happened -> why it matters to businesses -> 3 concrete numbered mitigation steps; close with one engagement question; 3-5 hashtags; 1100-1600 characters; blank line between paragraphs.\\n\\nRULES: max 1-2 emojis, no BREAKING-style bait, cite the source in plain text, defensive guidance only.\\n\\nOUTPUT: respond ONLY with valid JSON, no fences: {\\\"main_post\\\":\\\"...\\\",\\\"hashtags\\\":[\\\"...\\\"]}`;\n\nreturn [{ json: {\n  brief,\n  requestBody: {\n    model: 'claude-sonnet-4-6',\n    max_tokens: 2000,\n    system: systemPrompt,\n    messages: [{ role: 'user', content: 'Intel brief JSON:\\n' + JSON.stringify(brief) }]\n  }\n} }];"
+      },
+      "id": "code-2",
+      "name": "Parse Brief + Build Writer Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "http-2",
+      "name": "Call Claude - Writer",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [420, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = ($json.content || []).filter(b => b.type === 'text').map(b => b.text).join('\\n');\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nconst draft = JSON.parse(text.slice(start, end + 1));\nconst brief = $('Parse Brief + Build Writer Request').item.json.brief;\n\nconst systemPrompt = `You are the managing editor and compliance reviewer for a cybersecurity consultancy's content.\\n\\nCHECK THE DRAFT LINKEDIN POST AGAINST THE INTEL BRIEF FOR:\\n1. FACTUAL: CVE IDs, scores, vendors, dates match the brief. Flag anything not traceable to a source.\\n2. SAFETY: no exploitation instructions or attacker-enabling detail.\\n3. LEGAL: no defamatory attribution; unconfirmed breach claims labeled alleged.\\n4. BRAND: no fear-mongering; mitigations concrete; 1100-1600 chars.\\n\\nIf anything fails, FIX IT YOURSELF in the final post.\\n\\nOUTPUT: respond ONLY with valid JSON, no fences: {\\\"verdict\\\":\\\"APPROVE|REVISED\\\",\\\"final_post\\\":\\\"the publish-ready post text including hashtags\\\",\\\"human_review_summary\\\":\\\"3 short bullets: what the post claims, and anything you are less than 95% sure about\\\"}`;\n\nreturn [{ json: {\n  requestBody: {\n    model: 'claude-sonnet-4-6',\n    max_tokens: 2000,\n    system: systemPrompt,\n    messages: [{ role: 'user', content: 'INTEL BRIEF:\\n' + JSON.stringify(brief) + '\\n\\nDRAFT POST:\\n' + draft.main_post }]\n  }\n} }];"
+      },
+      "id": "code-3",
+      "name": "Build Editor Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [640, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "anthropic-version", "value": "2023-06-01" },
+            { "name": "content-type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.requestBody) }}",
+        "options": { "timeout": 120000 }
+      },
+      "id": "http-3",
+      "name": "Call Claude - Editor",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const text = ($json.content || []).filter(b => b.type === 'text').map(b => b.text).join('\\n');\nconst start = text.indexOf('{');\nconst end = text.lastIndexOf('}');\nconst review = JSON.parse(text.slice(start, end + 1));\nreturn [{ json: {\n  final_post: review.final_post,\n  verdict: review.verdict,\n  summary: review.human_review_summary\n} }];"
+      },
+      "id": "code-4",
+      "name": "Finalize Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1080, 200]
+    },
+    {
+      "parameters": {
+        "fromEmail": "you@yourdomain.com",
+        "toEmail": "you@yourdomain.com",
+        "subject": "=Approve today's LinkedIn post ({{ $json.verdict }})",
+        "emailFormat": "html",
+        "html": "=<h3>Editor summary</h3><p>{{ $json.summary }}</p><h3>Post</h3><pre style=\"white-space:pre-wrap;font-family:inherit;border:1px solid #ccc;padding:12px\">{{ $json.final_post }}</pre><p><a href=\"{{ $execution.resumeUrl }}?approved=yes\" style=\"background:#0a66c2;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px\">✅ Approve &amp; publish</a>&nbsp;&nbsp;<a href=\"{{ $execution.resumeUrl }}?approved=no\" style=\"background:#b00;color:#fff;padding:10px 18px;text-decoration:none;border-radius:4px\">❌ Reject</a></p>",
+        "options": {}
+      },
+      "id": "email-1",
+      "name": "Approval Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [1300, 200]
+    },
+    {
+      "parameters": {
+        "resume": "webhook",
+        "options": {}
+      },
+      "id": "wait-1",
+      "name": "Wait For Approval",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1520, 200],
+      "webhookId": "linkedin-approval-wait"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": false, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.query.approved }}",
+              "rightValue": "yes",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-1",
+      "name": "Approved?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1740, 200]
+    },
+    {
+      "parameters": {
+        "postAs": "person",
+        "person": "",
+        "text": "={{ $('Finalize Post').item.json.final_post }}",
+        "additionalFields": {}
+      },
+      "id": "linkedin-1",
+      "name": "Post to LinkedIn",
+      "type": "n8n-nodes-base.linkedIn",
+      "typeVersion": 1,
+      "position": [1960, 100]
+    },
+    {
+      "parameters": {},
+      "id": "noop-1",
+      "name": "Rejected - Do Nothing",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1960, 320]
+    }
+  ],
+  "connections": {
+    "Daily 06:00": { "main": [[{ "node": "Build Research Request", "type": "main", "index": 0 }]] },
+    "Build Research Request": { "main": [[{ "node": "Call Claude - Research", "type": "main", "index": 0 }]] },
+    "Call Claude - Research": { "main": [[{ "node": "Parse Brief + Build Writer Request", "type": "main", "index": 0 }]] },
+    "Parse Brief + Build Writer Request": { "main": [[{ "node": "Call Claude - Writer", "type": "main", "index": 0 }]] },
+    "Call Claude - Writer": { "main": [[{ "node": "Build Editor Request", "type": "main", "index": 0 }]] },
+    "Build Editor Request": { "main": [[{ "node": "Call Claude - Editor", "type": "main", "index": 0 }]] },
+    "Call Claude - Editor": { "main": [[{ "node": "Finalize Post", "type": "main", "index": 0 }]] },
+    "Finalize Post": { "main": [[{ "node": "Approval Email", "type": "main", "index": 0 }]] },
+    "Approval Email": { "main": [[{ "node": "Wait For Approval", "type": "main", "index": 0 }]] },
+    "Wait For Approval": { "main": [[{ "node": "Approved?", "type": "main", "index": 0 }]] },
+    "Approved?": {
+      "main": [
+        [{ "node": "Post to LinkedIn", "type": "main", "index": 0 }],
+        [{ "node": "Rejected - Do Nothing", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}
